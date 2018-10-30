@@ -1,0 +1,16 @@
+<html>
+   <body>
+   
+      <h3>LIST</h3>
+      {% for file_ in files %}
+        <form method="POST" action="./read">
+          <input type="hidden" value="{{file_}}" name="file_name">
+          read {{file_}}
+          <input type="submit" value="show"><br/>
+        </form>
+
+        
+      {% endfor %}
+      
+   </body>
+</html>
