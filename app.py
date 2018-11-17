@@ -1,4 +1,6 @@
 import os
+from os import path
+import pathlib
 from flask import Flask, flash, request, redirect, url_for
 from flask import render_template
 from werkzeug.utils import secure_filename
@@ -24,6 +26,7 @@ app.config['DEBUG'] = True
 
 DF_GLOBAL = None
 DF_ACT_GLOB = None
+UPLOAD_FOLDER = '/uploads'
 
 @app.route('/read', methods=['POST'])
 def file_read():
@@ -160,10 +163,54 @@ def upload_log():
 
 @app.route('/uploader', methods = ['GET', 'POST'])
 def upload_file():
-   if request.method == 'POST':
-      f = request.files['file']
-      f.save(secure_filename(f.filename))
-      return 'file uploaded successfully'
+    if request.method == 'POST':
+
+        
+        message = None
+        
+        file = None
+        try:
+            file = request.files['file']
+            if file:
+                # path = pathlib.Path.cwd()
+                # path = pathlib.Path(UPLOAD_FOLDER)
+                # path = path.joinpath(file.filename)
+                # print(path)
+                # path_ = pathlib.PurePath(UPLOAD_FOLDER)
+                # path_ = path_.joinpath(file.filename)
+                # print(f'{path_}')
+                
+                path = '/uploads/' + file.filename
+                print(path)
+                file.save(secure_filename(path))
+                message = 'file can be saved.'
+
+                # print("directory exists:" + str(path.exists(UPLOAD_FOLDER)))
+                # dir_path = pathlib.Path(UPLOAD_FOLDER)
+                # file_to_open = dir_path / file.filename
+                # print(file_to_open)
+                # print("is directory:" + str(file_to_open.is_dir()))
+                
+                # filename = secure_filename(filename)
+                # filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+                # filepath = pathlib.Path(filepath)
+                # filepath = pathlib.Path(file.filename)
+                # print(filepath)
+                
+                # file.save(secure_filename(file_to_open))
+                
+                # file.save(file_to_open)
+
+                # if filepath.exists():
+                #     message = 'file is already exist.'
+                # else:
+                #     message = 'file can be saved.'
+                #     # file.save(filepath)
+                #     message += '\nfile is saved...'
+        except:
+            message = 'cannot upload your file.'
+
+    return message
 
 @app.route('/')
 def hello():
