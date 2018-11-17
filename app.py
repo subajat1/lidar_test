@@ -9,7 +9,7 @@ from bokeh.plotting import *
 from bokeh.embed import components
 from bokeh.resources import INLINE
 from bokeh.util.string import encode_utf8
-from bokeh.models import ColumnDataSource, DatetimeTickFormatter, Band, Slider
+from bokeh.models import ColumnDataSource, Slider, Range1d
 from bokeh.io import curdoc
 from bokeh.layouts import column
 from bokeh.models.callbacks import CustomJS
@@ -36,18 +36,18 @@ def file_read():
         return "error %s" % err.args
 
     f = open(file_name, 'r')
-
     logdata = Scanner()
     logdata = logdata.scan_init(f)
-
     f.close()
     
     slide_values = []
+    mini_slide_valx = []
+    mini_slide_valy = []
     df_datas = []
-    df_xdata = []
-    df_ydata = []
+    df_xdata = pd.DataFrame()
+    df_ydata = pd.DataFrame()
 
-    count = 0
+    count = 1
     for log in logdata:
         key,val = log.ranges.split(':')
         log.ranges = val.lstrip()
@@ -61,72 +61,96 @@ def file_read():
         df_data['range'] = log.ranges
         df_data['x'] = df_data['range'] * np.cos(df_data['rad_space'])
         df_data['y'] = df_data['range'] * np.sin(df_data['rad_space'])
-        count = count + 1
-        if count < 10 and count > 3:
-            df_xdata = df_xdata + df_data['x'].tolist()
-            df_ydata = df_ydata + df_data['y'].tolist()
-            count = count + 1
 
-        df_datas.append(df_data)
+        if count == 1:
+            df_datas.append(df_data)
+
+        count += 1
+        if True:
+            mini_slide_valx.append('x' + str(log.seq))
+            mini_slide_valy.append('y' + str(log.seq))
+
+            if df_xdata.empty:
+                df_xdata = pd.DataFrame(df_data['x'])
+                df_xdata.columns = mini_slide_valx
+            else:
+                df_x = pd.DataFrame(df_data['x'])
+                df_xdata = pd.concat([df_xdata, df_x], ignore_index=True, axis=1)
+                df_xdata.columns = mini_slide_valx
+
+            if df_ydata.empty:
+                df_ydata = pd.DataFrame(df_data['y'])
+                df_ydata.columns = mini_slide_valy
+            else:
+                df_y = pd.DataFrame(df_data['y'])
+                df_ydata = pd.concat([df_ydata, df_y], ignore_index=True, axis=1)
+                df_ydata.columns = mini_slide_valy
 
     # charting
+    data_len = len(df_datas[0].index)
+    
+    x_0 = [0] * data_len
+    x_0[1] = df_datas[0]['x'][0]
+    x_0[data_len-1] = df_datas[0]['x'][data_len-2]
+
+    y_0 = [0] * data_len
+    y_0[1] = df_datas[0]['y'][0]
+    y_0[data_len-1] = df_datas[0]['y'][data_len-2]
+
     color_actual = '#0000AA'
+    color_act = '#003300'
     DF_ACT_GLOB = pd.DataFrame({
         'x': df_datas[0]['x'].tolist(),
-        'y': df_datas[0]['y'].tolist()
+        'y': df_datas[0]['y'].tolist(),
+        'x_0': x_0,
+        'y_0': y_0
     })
+
+    for colu in df_xdata:
+        DF_ACT_GLOB[df_xdata[colu].name] = df_xdata[colu]
+    for colu in df_ydata:
+        DF_ACT_GLOB[df_ydata[colu].name] = df_ydata[colu]
+
     source = ColumnDataSource(DF_ACT_GLOB)
 
-    # DF_ACT_GLOB = pd.DataFrame({
-    #     'x': df_xdata,
-    #     'y': df_ydata
-    # })
-    GLOB = pd.DataFrame({
-        'x': df_xdata,
-        'y': df_ydata
-    })
-    Curr = ColumnDataSource(GLOB)
+    fig = figure(title='lidar', plot_width=650, plot_height=650)
     
-    print('process')
-
-    fig = figure(title='lidar', plot_width=800, plot_height=800)
+    left, right, bottom, top = -10, 10, -10, 10
+    fig.x_range=Range1d(left, right)
+    fig.y_range=Range1d(bottom, top)
+    
     fig.line(source=source, x='x', y='y', 
             color=color_actual, line_width=2,
             alpha=0.8)
-
-    fig.vbar(x='x', top='x', width=0.2, color='#ffffff', alpha=0.0, source=Curr)
-
-    color_act = '#009900'
-    for index, row in DF_ACT_GLOB.iterrows():
-        df_act = pd.DataFrame({
-            'x': [0, row['x']],
-            'y': [0, row['y']]
-        })
-        ds_act = ColumnDataSource(df_act)
-        fig.line(source=ds_act, x='x', y='y', 
+    fig.line(source=source, x='x_0', y='y_0', 
             color=color_act, line_width=2,
-            alpha=0.8)
+            alpha=0.7)
 
-    callback = CustomJS(args=dict(source=source, sc=Curr), code="""
+    callback = CustomJS(args=dict(source=source), code="""
+        var f = cb_obj.value;
+        var f_x = ('x' + f);
+        var f_y = ('y' + f);
+
         var data = source.data;
-        var data_all = Curr.data;
-
-        var f = cb_obj.value
-        var x = data['x']
-        var y = data['y']
-        var len_data = x.length
-        var cursor = f * len_data
-        for (var i = 0; i < len_data; i++) {
-            x = data_all['x']
-            y = data_all['y']
+        var x = data['x'];
+        var y = data['y'];
+        for (i = 0; i < x.length; i++) {
+            x[i] = data[f_x][i];
+            y[i] = data[f_y][i];
         }
+
+        var x_0 = data['x_0'];
+        var y_0 = data['y_0'];
+        x_0[1] = x[1];
+        y_0[1] = y[1];
+        x_0[x.length-1] = x[x.length-2];
+        y_0[y.length-1] = y[y.length-2];
+        
         source.change.emit();
     """)
-    
+
     if len(logdata) > 1:
         slider = Slider(start=min(slide_values), end=max(slide_values), step=1, value=min(slide_values), title='Lidar seq')
-        # slider = Slider(start=0, end=max(slide_values)-min(slide_values), step=1, value=0, title='Lidar seq')
-        # slider = Slider(start=1, end=5, step=1, value=1, title='Lidar seq')
         slider.js_on_change('value', callback)
         layout = column(slider, fig)
         resources = INLINE.render()
@@ -139,13 +163,6 @@ def file_read():
         html = render_template('embed.html', plot_script=script, plot_div=div, resources=resources)
 
     return html
-
-# def printing():
-#     print('asdf')
-#     return 'asdf'
-# def update_data(attr, old, new):
-#     # n = slide.value
-#     DF_ACT_GLOB.data = DF_GLOBAL[10]
 
 @app.route('/list', methods=['GET'])
 def file_list():
