@@ -4,6 +4,7 @@ lidar.sock
 config/
 
 uploads_lidar-scan.tiffany.20180207.txt
+Pipfile.lock
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

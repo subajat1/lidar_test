@@ -8,8 +8,9 @@ flask = "*"
 numpy = "*"
 pandas = "*"
 bokeh = "*"
+werkzeug = ">=0.15.3"
+Jinja2 = ">=2.10.1"
 
 [dev-packages]
-
 [requires]
 python_version = "3.6"
